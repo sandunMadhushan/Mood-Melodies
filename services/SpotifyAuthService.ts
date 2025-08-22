@@ -1,8 +1,7 @@
 import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
 import { Alert } from 'react-native';
-import { SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET } from '@env';
-import { EnvConfig } from './EnvConfig';
 
 export interface SpotifyTokens {
   access_token: string;
@@ -12,9 +11,10 @@ export interface SpotifyTokens {
 }
 
 export class SpotifyAuthService {
-  // Credentials loaded from environment variables (.env file)
-  private static CLIENT_ID = SPOTIFY_CLIENT_ID;
-  private static CLIENT_SECRET = SPOTIFY_CLIENT_SECRET;
+  // Credentials loaded from Expo Constants (app.json extra config)
+  private static CLIENT_ID = Constants.expoConfig?.extra?.spotifyClientId;
+  private static CLIENT_SECRET =
+    Constants.expoConfig?.extra?.spotifyClientSecret;
   private static REDIRECT_URI = AuthSession.makeRedirectUri({
     scheme: 'moodmelodies', // Make sure this matches your app.json scheme
     path: 'auth',
@@ -28,40 +28,26 @@ export class SpotifyAuthService {
   ];
 
   /**
-   * Validate that environment variables are properly configured
+   * Validate that Spotify credentials are properly configured
    * @throws Error if configuration is invalid
    */
   private static validateConfig(): void {
-    if (!EnvConfig.isConfigured()) {
-      const status = EnvConfig.getConfigStatus();
-      console.error('❌ Spotify configuration error:');
-      EnvConfig.logConfigStatus();
-
-      let errorMessage = 'Spotify configuration is incomplete:\n';
-
-      if (!status.hasClientId) {
-        errorMessage += '- SPOTIFY_CLIENT_ID is missing\n';
-      } else if (!status.clientIdValid) {
-        errorMessage +=
-          '- SPOTIFY_CLIENT_ID is not set (still using placeholder)\n';
-      }
-
-      if (!status.hasClientSecret) {
-        errorMessage += '- SPOTIFY_CLIENT_SECRET is missing\n';
-      } else if (!status.clientSecretValid) {
-        errorMessage +=
-          '- SPOTIFY_CLIENT_SECRET is not set (still using placeholder)\n';
-      }
-
-      errorMessage +=
-        '\nPlease check your .env file and restart the development server.';
-
-      throw new Error(errorMessage);
+    if (!this.CLIENT_ID || this.CLIENT_ID === 'YOUR_SPOTIFY_CLIENT_ID') {
+      throw new Error(
+        'SPOTIFY_CLIENT_ID is not configured. Please check your app.json extra config.'
+      );
     }
 
-    console.log(
-      `✅ Spotify configuration loaded - Client ID: ${EnvConfig.getMaskedClientId()}`
-    );
+    if (
+      !this.CLIENT_SECRET ||
+      this.CLIENT_SECRET === 'YOUR_SPOTIFY_CLIENT_SECRET'
+    ) {
+      throw new Error(
+        'SPOTIFY_CLIENT_SECRET is not configured. Please check your app.json extra config.'
+      );
+    }
+
+    console.log('✅ Spotify configuration loaded successfully');
   }
 
   /**

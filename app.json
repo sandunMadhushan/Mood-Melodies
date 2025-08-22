@@ -8,6 +8,10 @@
     "scheme": "moodmelodies",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "extra": {
+      "spotifyClientId": "11767f1448e64fcbab567ec00a505059",
+      "spotifyClientSecret": "d648c046c636426d825aa25bb3c46e42"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yourcompany.moodmelodies"

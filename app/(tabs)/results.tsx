@@ -9,10 +9,15 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Linking,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
 import { useLocalSearchParams, router } from 'expo-router';
-import { RefreshCw, Chrome as Home, Music } from 'lucide-react-native';
+import {
+  RefreshCw,
+  Chrome as Home,
+  Music,
+  ExternalLink,
+} from 'lucide-react-native';
 import { VisionService } from '@/services/VisionService';
 import { SpotifyService } from '@/services/SpotifyService';
 
@@ -141,6 +146,29 @@ export default function ResultsScreen() {
     return colors[mood] || '#8B5CF6';
   };
 
+  const openSpotifyPlaylist = async (playlistId: string) => {
+    try {
+      const spotifyUrl = `https://open.spotify.com/playlist/${playlistId}`;
+      const canOpen = await Linking.canOpenURL(spotifyUrl);
+
+      if (canOpen) {
+        await Linking.openURL(spotifyUrl);
+      } else {
+        // Fallback to web URL
+        await Linking.openURL(
+          `https://open.spotify.com/playlist/${playlistId}`
+        );
+      }
+    } catch (error) {
+      console.error('Failed to open Spotify:', error);
+      Alert.alert(
+        'Unable to Open Spotify',
+        'Please install the Spotify app or check your internet connection.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
   if (!imageUri) {
     return (
       <SafeAreaView style={styles.container}>
@@ -148,7 +176,7 @@ export default function ResultsScreen() {
           <Text style={styles.errorText}>No image selected</Text>
           <TouchableOpacity
             style={styles.homeButton}
-            onPress={() => router.push('/(tabs)/')}
+            onPress={() => router.push('/(tabs)')}
           >
             <Home size={20} color="#FFFFFF" />
             <Text style={styles.homeButtonText}>Go Home</Text>
@@ -231,30 +259,28 @@ export default function ResultsScreen() {
         {playlistUri && (
           <View style={styles.playlistContainer}>
             <Text style={styles.playlistTitle}>Your Mood Playlist:</Text>
-            <View style={styles.webviewContainer}>
-              <WebView
-                source={{
-                  uri: `https://open.spotify.com/embed/playlist/${playlistUri}?utm_source=generator&theme=0`,
-                }}
-                style={styles.webview}
-                javaScriptEnabled={true}
-                domStorageEnabled={true}
-                startInLoadingState={true}
-                renderLoading={() => (
-                  <ActivityIndicator
-                    size="large"
-                    color="#8B5CF6"
-                    style={styles.webviewLoader}
-                  />
-                )}
-              />
+            <View style={styles.playlistCard}>
+              <View style={styles.playlistInfo}>
+                <Music size={40} color="#1DB954" />
+                <Text style={styles.playlistText}>
+                  Found the perfect playlist for your{' '}
+                  {moodResult?.mood.toLowerCase()} mood!
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.openSpotifyButton}
+                onPress={() => openSpotifyPlaylist(playlistUri)}
+              >
+                <ExternalLink size={20} color="#FFFFFF" />
+                <Text style={styles.openSpotifyText}>Open in Spotify</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
 
         <TouchableOpacity
           style={styles.homeButton}
-          onPress={() => router.push('/(tabs)/')}
+          onPress={() => router.push('/(tabs)')}
         >
           <Home size={20} color="#FFFFFF" />
           <Text style={styles.homeButtonText}>Analyze Another Photo</Text>
@@ -349,10 +375,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
-  webviewContainer: {
-    height: 380,
-    borderRadius: 12,
-    overflow: 'hidden',
+  playlistCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -362,14 +390,32 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  webview: {
-    flex: 1,
+  playlistInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  webviewLoader: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -20 }, { translateY: -20 }],
+  playlistText: {
+    fontSize: 16,
+    color: '#374151',
+    marginLeft: 12,
+    flex: 1,
+    lineHeight: 22,
+  },
+  openSpotifyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1DB954',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    justifyContent: 'center',
+    gap: 8,
+  },
+  openSpotifyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   homeButton: {
     flexDirection: 'row',
