@@ -8,10 +8,11 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useLocalSearchParams, router } from 'expo-router';
-import { RefreshCw, Chrome as Home } from 'lucide-react-native';
+import { RefreshCw, Chrome as Home, Music } from 'lucide-react-native';
 import { VisionService } from '@/services/VisionService';
 import { SpotifyService } from '@/services/SpotifyService';
 
@@ -27,6 +28,7 @@ export default function ResultsScreen() {
   const [moodResult, setMoodResult] = useState<MoodResult | null>(null);
   const [playlistUri, setPlaylistUri] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [needsAuth, setNeedsAuth] = useState<boolean>(false);
 
   useEffect(() => {
     if (imageUri) {
@@ -38,6 +40,7 @@ export default function ResultsScreen() {
     try {
       setLoading(true);
       setError('');
+      setNeedsAuth(false);
 
       // Analyze mood from image
       const mood = await VisionService.analyzeImage(imageUri);
@@ -47,14 +50,68 @@ export default function ResultsScreen() {
         emoji: getMoodEmoji(mood),
       };
 
+      setMoodResult(moodData);
+
+      // Check if Spotify is authenticated
+      const isAuthenticated = await SpotifyService.isServiceAvailable();
+      if (!isAuthenticated) {
+        setNeedsAuth(true);
+        setError(
+          'Please authenticate with Spotify to get personalized playlists'
+        );
+        return;
+      }
+
       // Get matching playlist
       const playlist = await SpotifyService.getPlaylistForMood(mood);
-
-      setMoodResult(moodData);
       setPlaylistUri(playlist);
-    } catch (err) {
-      setError('Failed to analyze mood. Please try again.');
+    } catch (err: any) {
+      if (
+        err.message?.includes('Authentication required') ||
+        err.message?.includes('authenticate')
+      ) {
+        setNeedsAuth(true);
+        setError(
+          'Please authenticate with Spotify to get personalized playlists'
+        );
+      } else {
+        setError('Failed to analyze mood. Please try again.');
+      }
       console.error('Analysis error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSpotifyAuth = async () => {
+    try {
+      setLoading(true);
+      const success = await SpotifyService.authenticate();
+
+      if (success) {
+        // Retry playlist search after successful authentication
+        if (moodResult) {
+          const playlist = await SpotifyService.getPlaylistForMood(
+            moodResult.mood
+          );
+          setPlaylistUri(playlist);
+          setNeedsAuth(false);
+          setError('');
+        }
+      } else {
+        Alert.alert(
+          'Authentication Failed',
+          'Failed to authenticate with Spotify. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Spotify authentication error:', error);
+      Alert.alert(
+        'Authentication Error',
+        'An error occurred during Spotify authentication.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
     }
@@ -120,13 +177,20 @@ export default function ResultsScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={analyzeMood}
-          >
-            <RefreshCw size={20} color="#FFFFFF" />
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
+          {needsAuth ? (
+            <TouchableOpacity
+              style={styles.authButton}
+              onPress={handleSpotifyAuth}
+            >
+              <Music size={20} color="#FFFFFF" />
+              <Text style={styles.authButtonText}>Connect Spotify</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.retryButton} onPress={analyzeMood}>
+              <RefreshCw size={20} color="#FFFFFF" />
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -344,6 +408,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  authButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1DB954', // Spotify green
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    gap: 8,
+  },
+  authButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
