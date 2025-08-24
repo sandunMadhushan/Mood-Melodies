@@ -15,10 +15,14 @@ export class SpotifyAuthService {
   private static CLIENT_ID = Constants.expoConfig?.extra?.spotifyClientId;
   private static CLIENT_SECRET =
     Constants.expoConfig?.extra?.spotifyClientSecret;
-  private static REDIRECT_URI = AuthSession.makeRedirectUri({
-    scheme: 'moodmelodies', // Make sure this matches your app.json scheme
-    path: 'auth',
-  });
+  private static REDIRECT_URI = 'moodmelodies://auth'; // Fixed redirect URI
+
+  /**
+   * Debug method to log the redirect URI being used
+   */
+  static logRedirectUri(): void {
+    console.log('🔗 Redirect URI being used:', this.REDIRECT_URI);
+  }
 
   private static SCOPES = [
     'playlist-read-private',
@@ -58,6 +62,9 @@ export class SpotifyAuthService {
     try {
       // Validate configuration first
       this.validateConfig();
+
+      // Debug: Log the redirect URI
+      this.logRedirectUri();
 
       // Check if we already have valid tokens
       const existingTokens = await this.getStoredTokens();
