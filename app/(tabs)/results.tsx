@@ -19,7 +19,7 @@ import {
   ExternalLink,
 } from 'lucide-react-native';
 import { VisionService } from '@/services/VisionService';
-import { SpotifyService } from '@/services/SpotifyService';
+import { SimpleSpotifyService } from '@/services/SimpleSpotifyService';
 
 interface MoodResult {
   mood: string;
@@ -57,19 +57,11 @@ export default function ResultsScreen() {
 
       setMoodResult(moodData);
 
-      // Check if Spotify is authenticated
-      const isAuthenticated = await SpotifyService.isServiceAvailable();
-      if (!isAuthenticated) {
-        setNeedsAuth(true);
-        setError(
-          'Please authenticate with Spotify to get personalized playlists'
-        );
-        return;
-      }
-
       // Get matching playlist
-      const playlist = await SpotifyService.getPlaylistForMood(mood);
-      setPlaylistUri(playlist);
+      const playlist = await SimpleSpotifyService.getPlaylistForMood(mood);
+      if (playlist) {
+        setPlaylistUri(playlist.external_urls?.spotify || '');
+      }
     } catch (err: any) {
       if (
         err.message?.includes('Authentication required') ||
@@ -91,30 +83,30 @@ export default function ResultsScreen() {
   const handleSpotifyAuth = async () => {
     try {
       setLoading(true);
-      const success = await SpotifyService.authenticate();
 
-      if (success) {
-        // Retry playlist search after successful authentication
-        if (moodResult) {
-          const playlist = await SpotifyService.getPlaylistForMood(
-            moodResult.mood
-          );
-          setPlaylistUri(playlist);
+      // For SimpleSpotifyService, we already have the token set
+      // Just try to get a playlist for the current mood
+      if (moodResult) {
+        const playlist = await SimpleSpotifyService.getPlaylistForMood(
+          moodResult.mood
+        );
+        if (playlist) {
+          setPlaylistUri(playlist.external_urls?.spotify || '');
           setNeedsAuth(false);
           setError('');
+        } else {
+          Alert.alert(
+            'No Playlist Found',
+            'Could not find a suitable playlist for your mood. Please try again.',
+            [{ text: 'OK' }]
+          );
         }
-      } else {
-        Alert.alert(
-          'Authentication Failed',
-          'Failed to authenticate with Spotify. Please try again.',
-          [{ text: 'OK' }]
-        );
       }
     } catch (error) {
-      console.error('Spotify authentication error:', error);
+      console.error('Spotify playlist error:', error);
       Alert.alert(
-        'Authentication Error',
-        'An error occurred during Spotify authentication.',
+        'Playlist Error',
+        'An error occurred while searching for playlists.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -146,18 +138,15 @@ export default function ResultsScreen() {
     return colors[mood] || '#8B5CF6';
   };
 
-  const openSpotifyPlaylist = async (playlistId: string) => {
+  const openSpotifyPlaylist = async (playlistUrl: string) => {
     try {
-      const spotifyUrl = `https://open.spotify.com/playlist/${playlistId}`;
-      const canOpen = await Linking.canOpenURL(spotifyUrl);
+      const canOpen = await Linking.canOpenURL(playlistUrl);
 
       if (canOpen) {
-        await Linking.openURL(spotifyUrl);
+        await Linking.openURL(playlistUrl);
       } else {
         // Fallback to web URL
-        await Linking.openURL(
-          `https://open.spotify.com/playlist/${playlistId}`
-        );
+        await Linking.openURL(playlistUrl);
       }
     } catch (error) {
       console.error('Failed to open Spotify:', error);
